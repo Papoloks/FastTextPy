@@ -41,6 +41,7 @@ _get_nlabels.restype= ctypes.c_int32
 class FastText(object):
     def __init__(self):
         self.__dealloc = lib.dealloc
+        lib.init_tables()
     @property
     def dim(self):
         return self.__dim
@@ -49,6 +50,7 @@ class FastText(object):
               window=5,epoch=5,min_count=5,negative=5,
               word_ngrams=1,loss_fn='hs',bucket=2000000,minn=3,
               maxn=6,thread=12,lrUpdateRate=100,t=1e-4,label='__label__',
+              verbose=False,
               ):
         """
         train the model using given params
@@ -101,16 +103,15 @@ class FastText(object):
         add_arg('-t',t)
         add_arg('-label',label)
         args = map(lambda opt:str(opt),args)
-        print args
+        if verbose:
+            print (args)
         c_args_type = (ctypes.c_char_p * len(args))
         c_args = c_args_type()
         for i,arg in enumerate(args):
             c_args[i] = arg
-        lib.init_tables()
         lib.train(len(args),c_args)
-        lib.free_tables()
         self.__read_property()
-
+        return self
     def __read_property(self):
         self.__dim = _get_dim()
         self.__rows = _mat_rows()
@@ -135,7 +136,7 @@ class FastText(object):
         if lib.loadModel(ctypes.c_char_p(filename))==1:
             raise ValueError("Model file cannot be opened for loading!")
         self.__read_property()
-
+        return self
     def __getitem__(self, word):
         wd = to_bytes_str(word)
         vec = np.zeros(self.dim,dtype=np.float32)
@@ -197,7 +198,7 @@ class FastText(object):
         :return: tuple of most similar (words,similarity)
         """
         if not hasattr(self,"word_emb_unit"):
-            self.__init_sims()
+            self.__init_sims(False)
         sim = np.dot(self.word_emb_init,self.word_emb_init[self.vocab[word]])
 
         indexes = np.argsort(-sim)[1:topn+1]
@@ -232,7 +233,6 @@ class FastText(object):
         line = line.replace('\n',' ')
         if _cpredict(line,topk,pred.ctypes.data)==-1:
             raise ValueError("all words in line not in dictionary")
-
         if class_label:
             self.__init_labels()
             return [self._labels[i] for i in pred]
@@ -250,6 +250,7 @@ class FastText(object):
         return np.dot(v1,v2)/(norm(v1)*norm(v2))
 
     def __del__(self):
+        lib.free_tables()
         self.__dealloc()
 
 def to_bytes_str(s):

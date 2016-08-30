@@ -3,7 +3,7 @@ CXXFLAGS = -pthread -std=c++0x
 OBJS = args.o dictionary.o matrix.o vector.o model.o utils.o
 INCLUDES = -I.
 
-opt: CXXFLAGS += -O3 -funroll-loops
+opt: CXXFLAGS += -O3 -funroll-loops -fPIC
 opt: fasttextPy
 
 

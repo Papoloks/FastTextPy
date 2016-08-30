@@ -147,7 +147,30 @@ void Dictionary::initNgrams() {
   }
 }
 
-bool Dictionary::readWord(std::istream& fin, std::string& word)
+bool Dictionary::readSWord(std::istream& fin, std::string& word)
+{
+    char c;
+    word.clear();
+    while (fin.peek() != EOF) {
+        fin.get(c);
+        if (isspace(c) || c == 0) {
+            if (word.empty()) {
+                if (c == '\n') {
+                    word += EOS;
+                    return true;
+                }
+                continue;
+            } else {
+                if (c == '\n') fin.unget();
+                return true;
+            }
+        }
+        word.push_back(c);
+    }
+    return !word.empty();
+}
+
+bool Dictionary::readWord(std::ifstream& fin, std::string& word)
 {
   char c;
   word.clear();
@@ -240,7 +263,7 @@ void Dictionary::addNgrams(std::vector<int32_t>& line, int32_t n) {
   }
 }
 
-int32_t Dictionary::getLine(std::istream& ifs,
+int32_t Dictionary::getLine(std::ifstream& ifs,
                             std::vector<int32_t>& words,
                             std::vector<int32_t>& labels,
                             std::minstd_rand& rng) {
@@ -269,6 +292,38 @@ int32_t Dictionary::getLine(std::istream& ifs,
   }
   return ntokens;
 }
+int32_t Dictionary::getSLine(std::istream& ifs,
+                            std::vector<int32_t>& words,
+                            std::vector<int32_t>& labels,
+                            std::minstd_rand& rng) {
+    std::uniform_real_distribution<> uniform(0, 1);
+    std::string token;
+    int32_t ntokens = 0;
+    words.clear();
+    labels.clear();
+    if (ifs.eof()) {
+        ifs.clear();
+        ifs.seekg(std::streampos(0));
+    }
+    while (readSWord(ifs, token)) {
+        if (token == EOS) break;
+        int32_t wid = getId(token);
+        if (wid < 0) continue;
+        entry_type type = getType(wid);
+        ntokens++;
+
+        if (type == entry_type::word && !discard(wid, uniform(rng))) {
+            words.push_back(wid);
+        }
+        if (type == entry_type::label) {
+            labels.push_back(wid - nwords_);
+        }
+        if (words.size() > MAX_LINE_SIZE && args.model != model_name::sup) break;
+    }
+
+    return ntokens;
+}
+
 
 std::string Dictionary::getLabel(int32_t lid) {
   assert(lid >= 0);

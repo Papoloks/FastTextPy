@@ -229,13 +229,15 @@ extern "C"{
     int32_t cpredict(char* content, int32_t k,int32_t* pred) {
         std::vector<int32_t> line, labels;
         std::istringstream ifs(content);
+
         Model model(input, output, args.dim, args.lr, 1);
-        dict.getLine(ifs, line, labels, model.rng);
+        dict.getSLine(ifs, line, labels, model.rng);
         dict.addNgrams(line, args.wordNgrams);
         if (line.empty()) {
             return -1;
         }
         std::vector<std::pair<real, int32_t>> predictions;
+        model.setTargetCounts(dict.getCounts(entry_type::label));
         model.predict(line, k, predictions);
         int i=0;
         for (auto it = predictions.cbegin(); it != predictions.cend(); it++,i++) {
@@ -251,8 +253,8 @@ extern "C"{
 }
 void predict(Dictionary& dict, Model& model, char* content, int32_t k) {
     std::vector<int32_t> line, labels;
-    //std::ifstream ifs(filename);
-    std::istringstream ifs(content);
+    std::ifstream ifs(content);
+    //std::istringstream ifs(content);
 
 
     while (ifs.peek() != EOF) {
